@@ -1,0 +1,127 @@
+version: '3.9'
+
+services:
+  # PostgreSQL databases for each service
+  user-db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: usersdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+  product-db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: productsdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+  order-db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: ordersdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+
+  # User service exposes a REST API for managing users
+  user-service:
+    build: ./user-service
+    environment:
+      DB_HOST: user-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: usersdb
+      ORDER_SERVICE_URL: http://order-service:3003
+    depends_on:
+      - user-db
+    ports:
+      - "3001:3001"
+
+  # Product service exposes a REST API for managing products
+  product-service:
+    build: ./product-service
+    environment:
+      DB_HOST: product-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: productsdb
+      ORDER_SERVICE_URL: http://order-service:3003
+    depends_on:
+      - product-db
+    ports:
+      - "3002:3002"
+
+  # Order service orchestrates requests to the user and product services
+  order-service:
+    build: ./order-service
+    environment:
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      DB_HOST: order-db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: ordersdb
+    depends_on:
+      - user-service
+      - product-service
+      - order-db
+    ports:
+      - "3003:3003"
+
+  # API gateway aggregates requests from the client and forwards them
+  # to the appropriate backend services. It exposes a single entry point
+  # on port 3000 and applies basic rate limiting. Service URLs are
+  # configured via environment variables to reference the internal
+  # service names defined above when running in Docker.
+  api-gateway:
+    build: ./api-gateway
+    environment:
+      PORT: 3000
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      ORDER_SERVICE_URL: http://order-service:3003
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    ports:
+      - "3000:3000"
+
+  # React/TypeScript client served via Vite preview
+  client:
+    build: ./client
+    ports:
+      - "5173:4173"
+    # Override the base URLs consumed by the React client so that all
+    # API requests go through the gateway. Without these overrides the
+    # client would call each service directly by its exposed port. By
+    # pointing to the gateway we enforce a single entry point for all
+    # backend operations. These variables are read via import.meta.env in
+    # client/src/App.tsx.
+    environment:
+      VITE_USER_SERVICE_URL: http://api-gateway:3000
+      VITE_PRODUCT_SERVICE_URL: http://api-gateway:3000
+      VITE_ORDER_SERVICE_URL: http://api-gateway:3000
+    depends_on:
+      - api-gateway
+      - user-service
+      - product-service
+      - order-service
+
+volumes:
+  user-db-data:
+  product-db-data:
+  order-db-data:
