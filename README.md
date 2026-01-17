@@ -85,14 +85,3 @@ secure-microservice-app/
 │     └─ App.tsx
 └─ README.md                 # This file
 ```
-
-### Clean Code Considerations
-
-* **Type safety:** All services and the client are written in TypeScript to catch type errors early.
-* **Separation of concerns:** Each microservice is responsible for a single domain.  The order service delegates to the user and product services rather than duplicating their logic.
-* **Responsiveness:** The client leverages Bootstrap to provide a responsive layout that works on both desktop and mobile screens.
-* **Configuration:** Base URLs and ports are extracted into environment variables so they can be changed without modifying the code.
-
-## Extending the System
-
-This demo is intentionally simple.  In a production environment you would typically persist data to a database, implement authentication and authorization, add proper logging and monitoring, and introduce fault tolerance mechanisms such as retries or circuit breakers.  However, this repository provides a solid foundation for building more complex scenarios and satisfies the requirements for a running end‑to‑end microservices demo with a responsive React UI.
